@@ -1,0 +1,74 @@
+.planet-transition {
+    transition: all 0.5s ease;
+}
+
+.features-demo-landing-page {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 10px;
+}
+
+.features-div-info-demo-landing-page {
+  display: inline-block;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.25);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1;
+  }
+  
+  .loading-overlay-inside {
+    margin-top: 100px;
+    width: 40%;
+    border-radius: 25px;
+    padding: 10px;
+  }
+  
+  .loading-overlay-div-loading {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .loading-overlay-img {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .loading-overlay-img-inside {
+    width: 100px;
+    margin: 0 auto;
+  }
+  
+  .loading-bar {
+    width: 100%;
+    background-color: #ccc;
+    height: 35px;
+    border-radius: 20px;
+    margin-bottom: 5px;
+  }
+  
+  .loading-bar-progress {
+    position: relative;
+    height: 100%;
+    background-color: #1ed760;
+    border-radius: 20px;
+    transition: width 0.3s ease;
+    max-width: 100%;
+  }
+
+  .callback-general-info-data-header-3 {
+    font-size: 3vw;
+    color: white;
+}
+  

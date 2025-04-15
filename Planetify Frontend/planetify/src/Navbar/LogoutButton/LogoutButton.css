@@ -1,0 +1,47 @@
+.landing-logout-button-container {
+    display: flex; /* Use flexbox for alignment */
+    justify-content: flex-end; /* Align items to the right */
+    align-items: center; /* Align items vertically */
+    margin-right: 1rem;
+}
+
+.landing-logout-button {
+    box-sizing: border-box; /* Ensure padding is included in width calculation */
+    height: 2.3rem; /* Adjusted height */
+    padding-inline: 30px; /* Adjust for icon width and padding */
+    background-color: #d71e1e1a;
+    border: 2px solid rgb(255, 119, 119);
+    border-radius: 20px;
+    color: rgb(215, 30, 30);
+    cursor: pointer;
+    font-weight: bolder;
+    transition-duration: 0.5s;
+}
+
+.landing-logout-button:hover {
+    background-color: rgba(215, 30, 30, 0.3);
+}
+
+@media screen and (max-width: 431px) {
+    .landing-logout-button-container {
+        right: 4.55rem;
+    }
+}
+
+@media screen and (max-width: 391px) {
+    .landing-logout-button-container {
+        right: 3.9rem;
+    }
+}
+
+@media screen and (max-width: 391px) {
+    .landing-logout-button-container {
+        right: 3.3rem;
+    }
+}
+
+@media screen and (max-width: 431px) {
+    .landing-logout-button {
+        padding-inline: 40px;
+    }
+}
