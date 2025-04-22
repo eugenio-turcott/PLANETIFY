@@ -11,7 +11,7 @@ import Footer from "../Navbar/Footer";
 const fetchTopGenres = async (token, limit, timeRange) => {
   try {
     const topGenresResponse = await axios.get(
-      `http://localhost:8000/top_genres/?token=${token}&limit=${limit}&time_range=${timeRange}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/top_genres/?token=${token}&limit=${limit}&time_range=${timeRange}`
     );
     const topGenres = topGenresResponse.data.top_genres.map((genre, index) => ({
       id: genre.id,
@@ -35,7 +35,7 @@ const fetchTopGenres = async (token, limit, timeRange) => {
 const fetchColors = async (imageUrls) => {
   try {
     const response = await axios.post(
-      "http://localhost:8000/extract_colors_multiple_images",
+      "http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/extract_colors_multiple_images",
       {
         image_urls: imageUrls,
         num_colors: 10,
@@ -48,19 +48,26 @@ const fetchColors = async (imageUrls) => {
   }
 };
 
-const handleCallback = async (code) => {
-  const existingToken = localStorage.getItem("token");
-  if (existingToken) {
-    console.log("Token already exists, no action taken.");
-    return existingToken;
+const handleCallback = async () => {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const state = params.get("state");
+  const storedState = sessionStorage.getItem("oauth_state");
+
+  if (state !== storedState) {
+    console.error("State mismatch");
+    return;
   }
+
+  // Eliminar el token existente antes de procesar un nuevo login
+  sessionStorage.removeItem("token");
 
   try {
     const response = await axios.get(
-      `http://localhost:8000/callback?code=${code}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/callback?code=${code}&state=${state}`
     );
     const token = response.data.access_token;
-    localStorage.setItem("token", token);
+    sessionStorage.setItem("token", token);
     return token;
   } catch (error) {
     console.error("Error during Spotify callback handling:", error);
@@ -119,19 +126,23 @@ const CustomSelect = ({ options, value, onChange }) => {
 };
 
 const CallbackGenres = () => {
-  const code = new URLSearchParams(window.location.search).get("code");
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const state = params.get("state");
   const [topGenres, setTopGenres] = useState(
-    JSON.parse(localStorage.getItem("topGenresWithColors")) || []
+    JSON.parse(sessionStorage.getItem("topGenresWithColors")) || []
   );
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
 
-  const [limit, setLimit] = useState(localStorage.getItem("limitGenres") || 10);
+  const [limit, setLimit] = useState(
+    sessionStorage.getItem("limitGenres") || 10
+  );
   const [timeRange, setTimeRange] = useState(
-    localStorage.getItem("timeRangeGenres") || "short_term"
+    sessionStorage.getItem("timeRangeGenres") || "short_term"
   );
   const [hasRings, setHasRings] = useState(
-    JSON.parse(localStorage.getItem("hasRings")) || false
+    JSON.parse(sessionStorage.getItem("hasRings")) || false
   );
 
   const [isLoading, setIsLoading] = useState(false);
@@ -212,33 +223,35 @@ const CallbackGenres = () => {
   );
 
   useEffect(() => {
-    localStorage.setItem("hasRings", JSON.stringify(hasRings));
+    sessionStorage.setItem("hasRings", JSON.stringify(hasRings));
   }, [hasRings]);
 
   const applyChanges = async () => {
-    navigate(`?code=${code}`);
+    navigate(`?code=${code}&state=${state}`);
     setShowPopup(false);
     setIsLoading(true);
-    const isAuthenticated = localStorage.getItem("isAuthenticated");
+    const isAuthenticated = sessionStorage.getItem("isAuthenticated");
 
     // Si no está autenticado, establecer isAuthenticated en true
     if (!isAuthenticated) {
-      localStorage.setItem("isAuthenticated", "true");
+      sessionStorage.setItem("isAuthenticated", "true");
       window.dispatchEvent(new Event("storage"));
     }
 
     let token;
 
     if (isAuthenticated) {
-      // Obtener el token del localStorage si ya está autenticado
-      token = localStorage.getItem("token");
+      // Obtener el token del sessionStorage si ya está autenticado
+      token = sessionStorage.getItem("token");
     } else {
       // Si no está autenticado, manejar el callback para obtener el token
-      token = await handleCallback(code);
+      token = await handleCallback();
     }
 
-    const storedData = JSON.parse(localStorage.getItem("topGenresWithColors"));
-    const storedTimeRange = localStorage.getItem("timeRangeGenres");
+    const storedData = JSON.parse(
+      sessionStorage.getItem("topGenresWithColors")
+    );
+    const storedTimeRange = sessionStorage.getItem("timeRangeGenres");
     let initialColorCount = 0;
 
     if (storedData && storedTimeRange === timeRange) {
@@ -291,25 +304,27 @@ const CallbackGenres = () => {
       audioRefs.current.forEach((audio) => {
         audio.pause();
       });
-      localStorage.setItem(
+      sessionStorage.setItem(
         "topGenresWithColors",
         JSON.stringify(updatedGenres)
       );
-      localStorage.setItem("colorsGenres", JSON.stringify(colorsArray));
-      localStorage.setItem("limitGenres", limit);
-      localStorage.setItem("timeRangeGenres", timeRange);
-      localStorage.setItem("hasRings", JSON.stringify(hasRings));
+      sessionStorage.setItem("colorsGenres", JSON.stringify(colorsArray));
+      sessionStorage.setItem("limitGenres", limit);
+      sessionStorage.setItem("timeRangeGenres", timeRange);
+      sessionStorage.setItem("hasRings", JSON.stringify(hasRings));
     }
     setIsLoading(false);
   };
 
   useEffect(() => {
-    const storedData = JSON.parse(localStorage.getItem("topGenresWithColors"));
-    const isAuthenticated = localStorage.getItem("isAuthenticated");
+    const storedData = JSON.parse(
+      sessionStorage.getItem("topGenresWithColors")
+    );
+    const isAuthenticated = sessionStorage.getItem("isAuthenticated");
 
     // Si no está autenticado, establecer isAuthenticated en true
     if (!isAuthenticated) {
-      localStorage.setItem("isAuthenticated", "true");
+      sessionStorage.setItem("isAuthenticated", "true");
       window.dispatchEvent(new Event("storage"));
     }
 
@@ -317,11 +332,11 @@ const CallbackGenres = () => {
       let token;
 
       if (isAuthenticated) {
-        // Obtener el token del localStorage si ya está autenticado
-        token = localStorage.getItem("token");
+        // Obtener el token del sessionStorage si ya está autenticado
+        token = sessionStorage.getItem("token");
       } else {
         // Si no está autenticado, manejar el callback para obtener el token
-        token = await handleCallback(code);
+        token = await handleCallback();
       }
 
       if (token) {
@@ -364,23 +379,23 @@ const CallbackGenres = () => {
         }
 
         setTopGenres(updatedGenres);
-        localStorage.setItem(
+        sessionStorage.setItem(
           "topGenresWithColors",
           JSON.stringify(updatedGenres)
         );
-        localStorage.setItem("colorsGenres", JSON.stringify(colorsArray));
-        localStorage.setItem(
+        sessionStorage.setItem("colorsGenres", JSON.stringify(colorsArray));
+        sessionStorage.setItem(
           "authUrlGenres",
-          `http://localhost:5173/callback?code=${code}`
+          `http://planetify-frontend.s3-website.us-east-2.amazonaws.com/callback?code=${code}&state=${state}`
         );
-        localStorage.setItem("limitGenres", limit);
-        localStorage.setItem("timeRangeGenres", timeRange);
-        localStorage.setItem("hasRings", JSON.stringify(hasRings));
-        navigate(`?code=${code}`);
+        sessionStorage.setItem("limitGenres", limit);
+        sessionStorage.setItem("timeRangeGenres", timeRange);
+        sessionStorage.setItem("hasRings", JSON.stringify(hasRings));
+        redirect(`?code=${code}&state=${state}`);
       }
     };
 
-    localStorage.setItem("updatedGenres", JSON.stringify(true));
+    sessionStorage.setItem("updatedGenres", JSON.stringify(true));
 
     if (storedData) {
       setTopGenres(storedData);
@@ -388,7 +403,7 @@ const CallbackGenres = () => {
     } else if (code) {
       updateGenres();
     }
-  }, [code, navigate]);
+  }, [code, state, navigate]);
 
   useEffect(() => {
     if (topGenres.length > 0 && topGenres[currentSlide]?.images.length > 0) {

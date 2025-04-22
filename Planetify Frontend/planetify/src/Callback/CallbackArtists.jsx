@@ -11,7 +11,7 @@ import Footer from "../Navbar/Footer";
 const fetchTopArtists = async (token, limit, timeRange) => {
   try {
     const response = await axios.get(
-      `http://localhost:8000/top_artists_with_tracks/?token=${token}&limit=${limit}&time_range=${timeRange}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/top_artists_with_tracks/?token=${token}&limit=${limit}&time_range=${timeRange}`
     );
 
     const topArtists = response.data.artists.map((artist, index) => {
@@ -42,7 +42,7 @@ const fetchTopArtists = async (token, limit, timeRange) => {
 const fetchColors = async (imageUrl) => {
   try {
     const response = await axios.get(
-      "http://localhost:8000/extract_colors_unique_image",
+      "http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/extract_colors_unique_image",
       {
         params: { image_url: imageUrl, num_colors: 10 },
       }
@@ -54,19 +54,26 @@ const fetchColors = async (imageUrl) => {
   }
 };
 
-const handleCallback = async (code) => {
-  const existingToken = localStorage.getItem("token");
-  if (existingToken) {
-    console.log("Token already exists, no action taken.");
-    return existingToken;
+const handleCallback = async () => {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const state = params.get("state");
+  const storedState = sessionStorage.getItem("oauth_state");
+
+  if (state !== storedState) {
+    console.error("State mismatch");
+    return;
   }
+
+  // Eliminar el token existente antes de procesar un nuevo login
+  sessionStorage.removeItem("token");
 
   try {
     const response = await axios.get(
-      `http://localhost:8000/callback?code=${code}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/callback?code=${code}&state=${state}`
     );
     const token = response.data.access_token;
-    localStorage.setItem("token", token);
+    sessionStorage.setItem("token", token);
     return token;
   } catch (error) {
     console.error("Error during Spotify callback handling:", error);
@@ -125,21 +132,23 @@ const CustomSelect = ({ options, value, onChange }) => {
 };
 
 const CallbackArtists = () => {
-  const code = new URLSearchParams(window.location.search).get("code");
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const state = params.get("state");
   const [topArtists, setTopArtists] = useState(
-    JSON.parse(localStorage.getItem("topArtistsWithColors")) || []
+    JSON.parse(sessionStorage.getItem("topArtistsWithColors")) || []
   );
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
 
   const [limit, setLimit] = useState(
-    localStorage.getItem("limitArtists") || 10
+    sessionStorage.getItem("limitArtists") || 10
   );
   const [timeRange, setTimeRange] = useState(
-    localStorage.getItem("timeRangeArtists") || "short_term"
+    sessionStorage.getItem("timeRangeArtists") || "short_term"
   );
   const [hasRings, setHasRings] = useState(
-    JSON.parse(localStorage.getItem("hasRings")) || false
+    JSON.parse(sessionStorage.getItem("hasRings")) || false
   );
 
   const [isLoading, setIsLoading] = useState(false);
@@ -217,33 +226,35 @@ const CallbackArtists = () => {
   );
 
   useEffect(() => {
-    localStorage.setItem("hasRings", JSON.stringify(hasRings));
+    sessionStorage.setItem("hasRings", JSON.stringify(hasRings));
   }, [hasRings]);
 
   const applyChanges = async () => {
-    navigate(`?code=${code}`);
+    navigate(`?code=${code}&state=${state}`);
     setShowPopup(false);
     setIsLoading(true);
-    const isAuthenticated = localStorage.getItem("isAuthenticated");
+    const isAuthenticated = sessionStorage.getItem("isAuthenticated");
 
     // Si no está autenticado, establecer isAuthenticated en true
     if (!isAuthenticated) {
-      localStorage.setItem("isAuthenticated", "true");
+      sessionStorage.setItem("isAuthenticated", "true");
       window.dispatchEvent(new Event("storage"));
     }
 
     let token;
 
     if (isAuthenticated) {
-      // Obtener el token del localStorage si ya está autenticado
-      token = localStorage.getItem("token");
+      // Obtener el token del sessionStorage si ya está autenticado
+      token = sessionStorage.getItem("token");
     } else {
       // Si no está autenticado, manejar el callback para obtener el token
-      token = await handleCallback(code);
+      token = await handleCallback();
     }
 
-    const storedData = JSON.parse(localStorage.getItem("topArtistsWithColors"));
-    const storedTimeRange = localStorage.getItem("timeRangeArtists");
+    const storedData = JSON.parse(
+      sessionStorage.getItem("topArtistsWithColors")
+    );
+    const storedTimeRange = sessionStorage.getItem("timeRangeArtists");
     let initialColorCount = 0;
 
     if (storedData && storedTimeRange === timeRange) {
@@ -287,25 +298,27 @@ const CallbackArtists = () => {
       audioRefs.current.forEach((audio) => {
         audio.pause();
       });
-      localStorage.setItem(
+      sessionStorage.setItem(
         "topArtistsWithColors",
         JSON.stringify(updatedArtists)
       );
-      localStorage.setItem("colorsArtists", JSON.stringify(colorsArray));
-      localStorage.setItem("limitArtists", limit);
-      localStorage.setItem("timeRangeArtists", timeRange);
-      localStorage.setItem("hasRings", JSON.stringify(hasRings));
+      sessionStorage.setItem("colorsArtists", JSON.stringify(colorsArray));
+      sessionStorage.setItem("limitArtists", limit);
+      sessionStorage.setItem("timeRangeArtists", timeRange);
+      sessionStorage.setItem("hasRings", JSON.stringify(hasRings));
     }
     setIsLoading(false);
   };
 
   useEffect(() => {
-    const storedData = JSON.parse(localStorage.getItem("topArtistsWithColors"));
-    const isAuthenticated = localStorage.getItem("isAuthenticated");
+    const storedData = JSON.parse(
+      sessionStorage.getItem("topArtistsWithColors")
+    );
+    const isAuthenticated = sessionStorage.getItem("isAuthenticated");
 
     // Si no está autenticado, establecer isAuthenticated en true
     if (!isAuthenticated) {
-      localStorage.setItem("isAuthenticated", "true");
+      sessionStorage.setItem("isAuthenticated", "true");
       window.dispatchEvent(new Event("storage"));
     }
 
@@ -313,11 +326,11 @@ const CallbackArtists = () => {
       let token;
 
       if (isAuthenticated) {
-        // Obtener el token del localStorage si ya está autenticado
-        token = localStorage.getItem("token");
+        // Obtener el token del sessionStorage si ya está autenticado
+        token = sessionStorage.getItem("token");
       } else {
         // Si no está autenticado, manejar el callback para obtener el token
-        token = await handleCallback(code);
+        token = await handleCallback();
       }
 
       if (token) {
@@ -351,23 +364,23 @@ const CallbackArtists = () => {
         }
 
         setTopArtists(updatedArtists);
-        localStorage.setItem(
+        sessionStorage.setItem(
           "topArtistsWithColors",
           JSON.stringify(updatedArtists)
         );
-        localStorage.setItem("colorsArtists", JSON.stringify(colorsArray));
-        localStorage.setItem(
+        sessionStorage.setItem("colorsArtists", JSON.stringify(colorsArray));
+        sessionStorage.setItem(
           "authUrlArtists",
-          `http://localhost:5173/callback?code=${code}`
+          `http://planetify-frontend.s3-website.us-east-2.amazonaws.com/callback?code=${code}&state=${state}`
         );
-        localStorage.setItem("limitArtists", limit);
-        localStorage.setItem("timeRangeArtists", timeRange);
-        localStorage.setItem("hasRings", JSON.stringify(hasRings));
-        navigate(`?code=${code}`);
+        sessionStorage.setItem("limitArtists", limit);
+        sessionStorage.setItem("timeRangeArtists", timeRange);
+        sessionStorage.setItem("hasRings", JSON.stringify(hasRings));
+        redirect(`?code=${code}&state=${state}`);
       }
     };
 
-    localStorage.setItem("updatedArtists", JSON.stringify(true));
+    sessionStorage.setItem("updatedArtists", JSON.stringify(true));
 
     if (storedData) {
       setTopArtists(storedData);
@@ -375,7 +388,7 @@ const CallbackArtists = () => {
     } else if (code) {
       updateArtists();
     }
-  }, [code, navigate]);
+  }, [code, state, navigate]);
 
   useEffect(() => {
     if (audioRefs.current[currentSlide]) {

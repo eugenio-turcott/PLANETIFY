@@ -1,14 +1,16 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.cache_handler import MemoryCacheHandler
 from pydantic import BaseModel
 import cv2
 import numpy as np
 from sklearn.cluster import KMeans
 import requests, asyncio
 from io import BytesIO
+from uuid import uuid4
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from config import settings
@@ -17,10 +19,10 @@ app = FastAPI()
 executor = ThreadPoolExecutor()
 
 # Permitir CORS
-origins = ["http://localhost:5173"]
+origins = ["http://planetify-frontend.s3-website.us-east-2.amazonaws.com", "http://localhost:5173"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,7 +40,9 @@ if not client_id or not client_secret or not redirect_uri:
 sp_oauth = SpotifyOAuth(client_id=client_id,
                         client_secret=client_secret,
                         redirect_uri=redirect_uri,
-                        scope=scope)
+                        scope=scope,
+                        cache_handler=MemoryCacheHandler()
+)
 
 class ImageUrlsRequest(BaseModel):
     image_urls: list[str]
@@ -89,15 +93,35 @@ async def get_colors_multiple_images(request: ImageUrlsRequest):
 
 @app.get("/login", tags=["Authentication"])
 async def login():
-    auth_url = sp_oauth.get_authorize_url()
-    return {"auth_url": auth_url}
+    state = str(uuid4())
+    auth_url = sp_oauth.get_authorize_url(state=state)
+    return {"auth_url": auth_url, "state": state}
 
 @app.get("/callback", tags=["Authentication"])
-async def callback(code: str):
-    token_info = sp_oauth.get_access_token(code)
+async def callback(code: str, state: str = None, request: Request = None):
+    # Verificar el state (si se usa)
+    if state:
+        # Comparar con el state almacenado en el frontend (vía query params)
+        stored_state = request.query_params.get("state") if request else None
+        if state != stored_state:
+            raise HTTPException(status_code=400, detail="State mismatch")
+
+    # Obtener el token sin depender de sesiones
+    token_info = sp_oauth.get_access_token(code=code, check_cache=False)
     if not token_info:
-        raise HTTPException(status_code=400, detail="Authentication failed")
-    return {"access_token": token_info['access_token']}
+        raise HTTPException(status_code=400, detail="Failed to get access token")
+
+    return {"access_token": token_info["access_token"]}
+
+@app.get("/logout", tags=["Authentication"])
+async def logout(token: str):
+    # Revocar el token en Spotify
+    requests.post(
+        "https://accounts.spotify.com/api/revoke",
+        data={"token": token},
+        auth=(client_id, client_secret)
+    )
+    return {"message": "Token revoked"}
 
 @app.get("/top_tracks", tags=["Spotify"])
 async def top_tracks(token: str, limit: int, time_range: str):
@@ -108,21 +132,21 @@ async def top_tracks(token: str, limit: int, time_range: str):
 async def fetch_artist_top_track(sp, artist_id):
     loop = asyncio.get_running_loop()
     artist_tracks = await loop.run_in_executor(executor, sp.artist_top_tracks, artist_id)
-    
+
     # Filtrar la primera canción donde el artista sea el único intérprete del track
     track = next((track for track in artist_tracks['tracks'] if len(track['artists']) == 1 and track['artists'][0]['id'] == artist_id), None)
-    
+
     # Si no se encuentra una canción donde el artista sea el único intérprete, usar la primera canción
     if track is None and artist_tracks['tracks']:
         track = artist_tracks['tracks'][0]
-    
+
     return track
 
 @app.get("/top_artists_with_tracks", tags=["Spotify"])
 async def top_artists_with_tracks(token: str, limit: int, time_range: str):
     sp = Spotify(auth=token)
     results = sp.current_user_top_artists(limit=limit, time_range=time_range)
-    
+
     top_artists = results['items']
 
     tasks = [fetch_artist_top_track(sp, artist['id']) for artist in top_artists]

@@ -11,7 +11,7 @@ const PlanetStats = ({ imageUrl, colors, planetInclination, hasRings }) => {
       if (!colors) {
         try {
           const response = await axios.get(
-            "http://localhost:8000/extract_colors_unique_image",
+            "http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/extract_colors_unique_image",
             {
               params: { image_url: imageUrl, num_colors: 10 },
             }

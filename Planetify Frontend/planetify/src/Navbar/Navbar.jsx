@@ -14,7 +14,7 @@ const fetchCurrentPlayingTrack = async (
 ) => {
   try {
     const currentPlayingTrackResponse = await axios.get(
-      `http://localhost:8000/current_playing_track/?token=${token}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/current_playing_track/?token=${token}`
     );
 
     const data = currentPlayingTrackResponse.data;
@@ -43,7 +43,7 @@ const fetchCurrentPlayingTrack = async (
 const fetchSkipToPreviousTrack = async (token) => {
   try {
     await axios.post(
-      `http://localhost:8000/skip_to_previous_track/?token=${token}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/skip_to_previous_track/?token=${token}`
     );
   } catch (error) {
     console.error("Error skipping to previous track:", error);
@@ -53,7 +53,7 @@ const fetchSkipToPreviousTrack = async (token) => {
 const fetchSkipToNextTrack = async (token) => {
   try {
     await axios.post(
-      `http://localhost:8000/skip_to_next_track/?token=${token}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/skip_to_next_track/?token=${token}`
     );
   } catch (error) {
     console.error("Error skipping to next track:", error);
@@ -63,7 +63,7 @@ const fetchSkipToNextTrack = async (token) => {
 const fetchPauseCurrentTrack = async (token) => {
   try {
     await axios.post(
-      `http://localhost:8000/pause_current_track/?token=${token}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/pause_current_track/?token=${token}`
     );
   } catch (error) {
     console.error("Error pausing current track:", error);
@@ -73,7 +73,7 @@ const fetchPauseCurrentTrack = async (token) => {
 const fetchResumeCurrentTrack = async (token) => {
   try {
     await axios.post(
-      `http://localhost:8000/resume_current_track/?token=${token}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/resume_current_track/?token=${token}`
     );
   } catch (error) {
     console.error("Error resuming current track:", error);
@@ -88,16 +88,16 @@ const formatTime = (ms) => {
 
 const Navbar = ({ autoHide }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(
-    localStorage.getItem("isAuthenticated") === "true"
+    sessionStorage.getItem("isAuthenticated") === "true"
   );
   const [authUrlTracks, setAuthUrlTracks] = useState(
-    localStorage.getItem("authUrlTracks")
+    sessionStorage.getItem("authUrlTracks")
   );
   const [authUrlArtists, setAuthUrlArtists] = useState(
-    localStorage.getItem("authUrlArtists")
+    sessionStorage.getItem("authUrlArtists")
   );
   const [authUrlGenres, setAuthUrlGenres] = useState(
-    localStorage.getItem("authUrlGenres")
+    sessionStorage.getItem("authUrlGenres")
   );
   const [isVisible, setIsVisible] = useState(true);
   const [prevScrollPos, setPrevScrollPos] = useState(window.scrollY);
@@ -134,10 +134,10 @@ const Navbar = ({ autoHide }) => {
 
     const handleStorageChange = () => {
       const isAuthenticated =
-        localStorage.getItem("isAuthenticated") === "true";
-      const authUrlTracks = localStorage.getItem("authUrlTracks");
-      const authUrlArtists = localStorage.getItem("authUrlArtists");
-      const authUrlGenres = localStorage.getItem("authUrlGenres");
+        sessionStorage.getItem("isAuthenticated") === "true";
+      const authUrlTracks = sessionStorage.getItem("authUrlTracks");
+      const authUrlArtists = sessionStorage.getItem("authUrlArtists");
+      const authUrlGenres = sessionStorage.getItem("authUrlGenres");
       setIsAuthenticated(isAuthenticated);
       setAuthUrlTracks(authUrlTracks);
       setAuthUrlArtists(authUrlArtists);
@@ -153,10 +153,10 @@ const Navbar = ({ autoHide }) => {
     };
   }, [debouncedHideBar]);
 
-  let tokenExterno = localStorage.getItem("token");
+  let tokenExterno = sessionStorage.getItem("token");
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     window.dispatchEvent(new Event("storage"));
 
     const fetchTrackData = () => {
@@ -193,11 +193,12 @@ const Navbar = ({ autoHide }) => {
   }, [progressTrack, currentTrack.duration_track]);
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setAuthUrlTracks("");
-    setAuthUrlArtists("");
-    setAuthUrlGenres("");
-    localStorage.removeItem("statsMode");
+    const token = sessionStorage.getItem("token");
+    axios.get(
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com/logout/?token=${token}`
+    );
+    sessionStorage.clear();
+    window.location.href = "https://accounts.spotify.com/logout";
   };
 
   const setStatsMode = (mode) => {
@@ -226,12 +227,12 @@ const Navbar = ({ autoHide }) => {
       "timeRangeTracks",
       "timeRangeGenres",
     ];
-    Object.keys(localStorage).forEach((key) => {
+    Object.keys(sessionStorage).forEach((key) => {
       if (!keysToKeep.includes(key)) {
-        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
       }
     });
-    localStorage.setItem("statsMode", mode);
+    sessionStorage.setItem("statsMode", mode);
   };
 
   let classHide = "visible";

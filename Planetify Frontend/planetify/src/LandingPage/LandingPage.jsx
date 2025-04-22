@@ -54,25 +54,25 @@ const LandingPage = () => {
   const planetInclinations = 45;
 
   const [hasRings, setHasRings] = useState(
-    JSON.parse(localStorage.getItem("hasRingsPlanetLanding")) ?? false
+    JSON.parse(sessionStorage.getItem("hasRingsPlanetLanding")) ?? false
   );
   const [selectedIndex, setSelectedIndex] = useState(
-    parseInt(localStorage.getItem("selectedIndex")) || 0
+    parseInt(sessionStorage.getItem("selectedIndex")) || 0
   );
   const [currentColors, setCurrentColors] = useState(
-    JSON.parse(localStorage.getItem("currentColorsPlanetLanding")) ||
+    JSON.parse(sessionStorage.getItem("currentColorsPlanetLanding")) ||
       colorPlanet[0]
   );
   const [currentInclination, setCurrentInclination] =
     useState(planetInclinations);
 
   useEffect(() => {
-    localStorage.setItem("selectedIndex", selectedIndex);
-    localStorage.setItem(
+    sessionStorage.setItem("selectedIndex", selectedIndex);
+    sessionStorage.setItem(
       "currentColorsPlanetLanding",
       JSON.stringify(currentColors)
     );
-    localStorage.setItem("hasRingsPlanetLanding", JSON.stringify(hasRings));
+    sessionStorage.setItem("hasRingsPlanetLanding", JSON.stringify(hasRings));
   }, [selectedIndex, currentColors, hasRings]);
 
   const handleImageClick = (index) => {

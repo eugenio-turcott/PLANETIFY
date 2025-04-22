@@ -5,14 +5,13 @@ import Navbar from "../Navbar/Navbar";
 import PlanetStats from "../PlanetStats/PlanetStats";
 import CallbackGeneral from "./CallbackGeneral";
 import CallbackGeneral2 from "./CallbackGeneral2";
-import Callback from "./Callback";
 import "./CallbackTracks.css";
 import Footer from "../Navbar/Footer";
 
 const fetchTopTracks = async (token, limit, timeRange) => {
   try {
     const topTracksResponse = await axios.get(
-      `http://localhost:8000/top_tracks/?token=${token}&limit=${limit}&time_range=${timeRange}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/top_tracks/?token=${token}&limit=${limit}&time_range=${timeRange}`
     );
     const topTracks = topTracksResponse.data.items.map((track, index) => ({
       id: track.id,
@@ -37,7 +36,7 @@ const fetchTopTracks = async (token, limit, timeRange) => {
 const fetchColors = async (imageUrl) => {
   try {
     const response = await axios.get(
-      "http://localhost:8000/extract_colors_unique_image",
+      "http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/extract_colors_unique_image",
       {
         params: { image_url: imageUrl, num_colors: 10 },
       }
@@ -49,19 +48,26 @@ const fetchColors = async (imageUrl) => {
   }
 };
 
-const handleCallback = async (code) => {
-  const existingToken = localStorage.getItem("token");
-  if (existingToken) {
-    console.log("Token already exists, no action taken.");
-    return existingToken;
+const handleCallback = async () => {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const state = params.get("state");
+  const storedState = sessionStorage.getItem("oauth_state");
+
+  if (state !== storedState) {
+    console.error("State mismatch");
+    return;
   }
+
+  // Eliminar el token existente antes de procesar un nuevo login
+  sessionStorage.removeItem("token");
 
   try {
     const response = await axios.get(
-      `http://localhost:8000/callback?code=${code}`
+      `http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/callback?code=${code}&state=${state}`
     );
     const token = response.data.access_token;
-    localStorage.setItem("token", token);
+    sessionStorage.setItem("token", token);
     return token;
   } catch (error) {
     console.error("Error during Spotify callback handling:", error);
@@ -120,19 +126,23 @@ const CustomSelect = ({ options, value, onChange }) => {
 };
 
 const CallbackTracks = () => {
-  const code = new URLSearchParams(window.location.search).get("code");
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const state = params.get("state");
   const [topTracks, setTopTracks] = useState(
-    JSON.parse(localStorage.getItem("topTracksWithColors")) || []
+    JSON.parse(sessionStorage.getItem("topTracksWithColors")) || []
   );
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showPopup, setShowPopup] = useState(false);
 
-  const [limit, setLimit] = useState(localStorage.getItem("limitTracks") || 10);
+  const [limit, setLimit] = useState(
+    sessionStorage.getItem("limitTracks") || 10
+  );
   const [timeRange, setTimeRange] = useState(
-    localStorage.getItem("timeRangeTracks") || "short_term"
+    sessionStorage.getItem("timeRangeTracks") || "short_term"
   );
   const [hasRings, setHasRings] = useState(
-    JSON.parse(localStorage.getItem("hasRings")) || false
+    JSON.parse(sessionStorage.getItem("hasRings")) || false
   );
 
   const [isLoading, setIsLoading] = useState(false);
@@ -210,33 +220,35 @@ const CallbackTracks = () => {
   );
 
   useEffect(() => {
-    localStorage.setItem("hasRings", JSON.stringify(hasRings));
+    sessionStorage.setItem("hasRings", JSON.stringify(hasRings));
   }, [hasRings]);
 
   const applyChanges = async () => {
-    navigate(`?code=${code}`);
+    navigate(`?code=${code}&state=${state}`);
     setShowPopup(false);
     setIsLoading(true);
-    const isAuthenticated = localStorage.getItem("isAuthenticated");
+    const isAuthenticated = sessionStorage.getItem("isAuthenticated");
 
     // Si no está autenticado, establecer isAuthenticated en true
     if (!isAuthenticated) {
-      localStorage.setItem("isAuthenticated", "true");
+      sessionStorage.setItem("isAuthenticated", "true");
       window.dispatchEvent(new Event("storage"));
     }
 
     let token;
 
     if (isAuthenticated) {
-      // Obtener el token del localStorage si ya está autenticado
-      token = localStorage.getItem("token");
+      // Obtener el token del sessionStorage si ya está autenticado
+      token = sessionStorage.getItem("token");
     } else {
       // Si no está autenticado, manejar el callback para obtener el token
-      token = await handleCallback(code);
+      token = await handleCallback();
     }
 
-    const storedData = JSON.parse(localStorage.getItem("topTracksWithColors"));
-    const storedTimeRange = localStorage.getItem("timeRangeTracks");
+    const storedData = JSON.parse(
+      sessionStorage.getItem("topTracksWithColors")
+    );
+    const storedTimeRange = sessionStorage.getItem("timeRangeTracks");
     let initialColorCount = 0;
 
     if (storedData && storedTimeRange === timeRange) {
@@ -279,25 +291,27 @@ const CallbackTracks = () => {
       audioRefs.current.forEach((audio) => {
         audio.pause();
       });
-      localStorage.setItem(
+      sessionStorage.setItem(
         "topTracksWithColors",
         JSON.stringify(updatedTracks)
       );
-      localStorage.setItem("colorsTracks", JSON.stringify(colorsArray));
-      localStorage.setItem("limitTracks", limit);
-      localStorage.setItem("timeRangeTracks", timeRange);
-      localStorage.setItem("hasRings", JSON.stringify(hasRings));
+      sessionStorage.setItem("colorsTracks", JSON.stringify(colorsArray));
+      sessionStorage.setItem("limitTracks", limit);
+      sessionStorage.setItem("timeRangeTracks", timeRange);
+      sessionStorage.setItem("hasRings", JSON.stringify(hasRings));
     }
     setIsLoading(false);
   };
 
   useEffect(() => {
-    const storedData = JSON.parse(localStorage.getItem("topTracksWithColors"));
-    const isAuthenticated = localStorage.getItem("isAuthenticated");
+    const storedData = JSON.parse(
+      sessionStorage.getItem("topTracksWithColors")
+    );
+    const isAuthenticated = sessionStorage.getItem("isAuthenticated");
 
     // Si no está autenticado, establecer isAuthenticated en true
     if (!isAuthenticated) {
-      localStorage.setItem("isAuthenticated", "true");
+      sessionStorage.setItem("isAuthenticated", "true");
       window.dispatchEvent(new Event("storage"));
     }
 
@@ -305,11 +319,11 @@ const CallbackTracks = () => {
       let token;
 
       if (isAuthenticated) {
-        // Obtener el token del localStorage si ya está autenticado
-        token = localStorage.getItem("token");
+        // Obtener el token del sessionStorage si ya está autenticado
+        token = sessionStorage.getItem("token");
       } else {
         // Si no está autenticado, manejar el callback para obtener el token
-        token = await handleCallback(code);
+        token = await handleCallback();
       }
 
       if (token) {
@@ -342,23 +356,23 @@ const CallbackTracks = () => {
         }
 
         setTopTracks(updatedTracks);
-        localStorage.setItem(
+        sessionStorage.setItem(
           "topTracksWithColors",
           JSON.stringify(updatedTracks)
         );
-        localStorage.setItem("colorsTracks", JSON.stringify(colorsArray));
-        localStorage.setItem(
+        sessionStorage.setItem("colorsTracks", JSON.stringify(colorsArray));
+        sessionStorage.setItem(
           "authUrlTracks",
-          `http://localhost:5173/callback?code=${code}`
+          `http://planetify-frontend.s3-website.us-east-2.amazonaws.com/callback?code=${code}&state=${state}`
         );
-        localStorage.setItem("limitTracks", limit);
-        localStorage.setItem("timeRangeTracks", timeRange);
-        localStorage.setItem("hasRings", JSON.stringify(hasRings));
-        redirect(`?code=${code}`);
+        sessionStorage.setItem("limitTracks", limit);
+        sessionStorage.setItem("timeRangeTracks", timeRange);
+        sessionStorage.setItem("hasRings", JSON.stringify(hasRings));
+        redirect(`?code=${code}&state=${state}`);
       }
     };
 
-    localStorage.setItem("updatedTracks", JSON.stringify(true));
+    sessionStorage.setItem("updatedTracks", JSON.stringify(true));
 
     if (storedData) {
       setTopTracks(storedData);
@@ -366,7 +380,7 @@ const CallbackTracks = () => {
     } else if (code) {
       updateTracks();
     }
-  }, [code]);
+  }, [code, state, navigate]);
 
   useEffect(() => {
     if (audioRefs.current[currentSlide]) {

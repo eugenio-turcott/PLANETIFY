@@ -4,12 +4,15 @@ import "./LoginButton.css";
 const LoginButton = () => {
   const handleLogin = async () => {
     try {
-      const response = await axios.get("http://localhost:8000/login");
-      const authUrl = response.data.auth_url;
-      localStorage.setItem("authUrlTracks", authUrl);
-      localStorage.setItem("authUrlArtists", authUrl);
-      localStorage.setItem("authUrlGenres", authUrl);
-      window.location.href = authUrl;
+      const response = await axios.get(
+        "http://ec2-3-144-1-0.us-east-2.compute.amazonaws.com:8000/login"
+      );
+      const { auth_url, state } = response.data;
+      sessionStorage.setItem("oauth_state", state);
+      sessionStorage.setItem("authUrlTracks", auth_url);
+      sessionStorage.setItem("authUrlArtists", auth_url);
+      sessionStorage.setItem("authUrlGenres", auth_url);
+      window.location.href = `${auth_url}&state=${state}`;
     } catch (error) {
       console.error("Error during login:", error);
     }

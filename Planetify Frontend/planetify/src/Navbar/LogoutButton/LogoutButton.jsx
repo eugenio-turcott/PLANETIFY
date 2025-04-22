@@ -5,7 +5,7 @@ const LogoutButton = ({ onLogout }) => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.clear();
+    sessionStorage.clear();
     onLogout();
     navigate("/");
   };
